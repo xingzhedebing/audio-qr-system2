@@ -1,19 +1,15 @@
 {
   "version": 2,
-  "name": "audio-qr-system",
-  "functions": {
-    "server.js": {
-      "runtime": "@vercel/node@18.x",
-      "maxDuration": 30
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/(.*)",
       "dest": "/server.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 } 
