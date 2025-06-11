@@ -1,0 +1,41 @@
+{
+  "name": "audio-qr-system",
+  "version": "1.0.0",
+  "description": "音频转二维码系统 - 上传音频生成永久有效二维码",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'No build step required'",
+    "deploy": "echo 'Ready for deployment'"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "audio",
+    "qr-code",
+    "upload",
+    "cloud-storage",
+    "nodejs",
+    "express"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "cos-nodejs-sdk-v5": "^2.12.4",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fs-extra": "^11.1.1",
+    "lowdb": "^6.0.1",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.3",
+    "uuid": "^9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/audio-qr-system.git"
+  },
+  "homepage": "https://github.com/yourusername/audio-qr-system#readme"
+} 

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音频转二维码系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        #audioFile {
+            display: none;
+        }
+
+        .upload-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        .upload-btn:hover {
+            background: #5a67d8;
+        }
+
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .qr-container {
+            text-align: center;
+        }
+
+        .qr-code {
+            max-width: 250px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .result-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .result-item label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .result-item input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .audio-list {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .audio-list h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .audio-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .audio-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .audio-info {
+            flex: 1;
+        }
+
+        .audio-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .audio-meta {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .audio-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* 二维码查看弹窗样式 */
+        .qr-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .qr-modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .qr-modal-close {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .qr-modal-close:hover {
+            color: #000;
+            background-color: #f0f0f0;
+        }
+
+        .qr-modal-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .qr-modal-image {
+            max-width: 300px;
+            width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .qr-modal-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .qr-modal-info h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .qr-modal-info p {
+            color: #666;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .qr-modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .qr-modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .qr-modal-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .qr-modal-btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .qr-modal-btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .qr-modal-btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .qr-modal-btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .qr-modal-btn-success:hover {
+            background: #218838;
+        }
+
+        @media (max-width: 768px) {
+            .result-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .audio-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .audio-actions {
+                width: 100%;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+
+            .qr-modal-content {
+                margin: 10% auto;
+                width: 95%;
+                padding: 20px;
+            }
+
+            .qr-modal-actions {
+                flex-direction: column;
+            }
+
+            .qr-modal-btn {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 音频转二维码系统</h1>
+            <p>上传音频文件，生成永久有效的二维码，扫码即可播放</p>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">点击选择音频文件或拖拽到此处</div>
+                <div class="upload-hint">支持 MP3、WAV、OGG 等格式，最大 50MB</div>
+                <input type="file" id="audioFile" accept="audio/*">
+                <button class="upload-btn" id="uploadBtn" disabled>上传音频</button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>正在上传并生成二维码...</div>
+            </div>
+        </div>
+
+        <!-- 结果显示区域 -->
+        <div class="result-section" id="resultSection">
+            <div class="result-grid">
+                <div class="qr-container">
+                    <img id="qrCode" class="qr-code" alt="二维码">
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="downloadQR()">下载二维码</button>
+                    </div>
+                </div>
+                <div class="result-info">
+                    <h3>上传成功！</h3>
+                    <div class="result-item">
+                        <label>播放链接：</label>
+                        <input type="text" id="playUrl" readonly>
+                    </div>
+                    <div class="result-item">
+                        <label>云端音频地址：</label>
+                        <input type="text" id="cosAudioUrl" readonly>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="copyPlayUrl()">复制链接</button>
+                        <button class="btn btn-secondary" onclick="resetUpload()">继续上传</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 音频列表 -->
+        <div class="audio-list">
+            <h2>📚 音频管理</h2>
+            <div id="audioList">
+                <div style="text-align: center; color: #666; padding: 40px;">
+                    正在加载音频列表...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 二维码查看弹窗 -->
+    <div id="qrModal" class="qr-modal">
+        <div class="qr-modal-content">
+            <span class="qr-modal-close" onclick="closeQRModal()">&times;</span>
+            <div class="qr-modal-title" id="qrModalTitle">🎵 音频二维码</div>
+            <img id="qrModalImage" class="qr-modal-image" alt="二维码">
+            <div class="qr-modal-info" id="qrModalInfo">
+                <h4>📱 使用说明</h4>
+                <p>• 使用手机扫描此二维码即可播放音频</p>
+                <p>• 二维码永久有效，可以分享给他人</p>
+                <p>• 支持微信、支付宝等扫码工具</p>
+            </div>
+            <div class="qr-modal-actions">
+                <button class="qr-modal-btn qr-modal-btn-primary" onclick="testQRCode()">
+                    🎧 测试播放
+                </button>
+                <button class="qr-modal-btn qr-modal-btn-success" onclick="downloadCurrentQR()">
+                    💾 下载二维码
+                </button>
+                <button class="qr-modal-btn qr-modal-btn-secondary" onclick="copyQRLink()">
+                    📋 复制链接
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAudioId = null;
+        let currentQrUrl = null;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeUpload();
+            loadAudioList();
+        });
+
+        function initializeUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const audioFile = document.getElementById('audioFile');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            // 点击上传区域选择文件
+            uploadArea.addEventListener('click', () => {
+                audioFile.click();
+            });
+
+            // 文件选择变化
+            audioFile.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = `上传 ${this.files[0].name}`;
+                } else {
+                    uploadBtn.disabled = true;
+                    uploadBtn.textContent = '上传音频';
+                }
+            });
+
+            // 拖拽功能
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith('audio/')) {
+                    audioFile.files = files;
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = `上传 ${files[0].name}`;
+                }
+            });
+
+            // 上传按钮点击
+            uploadBtn.addEventListener('click', uploadAudio);
+        }
+
+        async function uploadAudio() {
+            const audioFile = document.getElementById('audioFile');
+            const loading = document.getElementById('loading');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            if (!audioFile.files[0]) {
+                showAlert('请选择音频文件', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio', audioFile.files[0]);
+
+            loading.style.display = 'block';
+            uploadBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResult(result);
+                    loadAudioList(); // 刷新列表
+                    showAlert(result.message, 'success');
+                } else {
+                    showAlert(result.error || '上传失败', 'error');
+                }
+            } catch (error) {
+                console.error('上传错误:', error);
+                showAlert('上传失败: ' + error.message, 'error');
+            } finally {
+                loading.style.display = 'none';
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '上传音频';
+            }
+        }
+
+        function showResult(result) {
+            const resultSection = document.getElementById('resultSection');
+            const qrCode = document.getElementById('qrCode');
+            const playUrl = document.getElementById('playUrl');
+            const cosAudioUrl = document.getElementById('cosAudioUrl');
+
+            currentAudioId = result.audioId;
+            currentQrUrl = result.qrCodeUrl;
+
+            qrCode.src = result.qrCodeUrl;
+            playUrl.value = result.playUrl;
+            cosAudioUrl.value = result.cosAudioUrl || '本地存储';
+
+            resultSection.style.display = 'block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function resetUpload() {
+            const resultSection = document.getElementById('resultSection');
+            const audioFile = document.getElementById('audioFile');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            resultSection.style.display = 'none';
+            audioFile.value = '';
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '上传音频';
+            currentAudioId = null;
+            currentQrUrl = null;
+        }
+
+        function copyPlayUrl() {
+            const playUrl = document.getElementById('playUrl');
+            playUrl.select();
+            document.execCommand('copy');
+            showAlert('链接已复制到剪贴板', 'success');
+        }
+
+        function downloadQR() {
+            if (currentQrUrl) {
+                const link = document.createElement('a');
+                link.href = currentQrUrl;
+                link.download = `qr_${currentAudioId}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        async function loadAudioList() {
+            const audioList = document.getElementById('audioList');
+            
+            try {
+                const response = await fetch('/api/audios');
+                const audios = await response.json();
+
+                if (audios.length === 0) {
+                    audioList.innerHTML = `
+                        <div style="text-align: center; color: #666; padding: 40px;">
+                            暂无音频文件，请先上传音频
+                        </div>
+                    `;
+                    return;
+                }
+
+                audioList.innerHTML = audios.map(audio => `
+                    <div class="audio-item">
+                        <div class="audio-info">
+                            <div class="audio-name">${audio.originalName}</div>
+                            <div class="audio-meta">
+                                播放次数: ${audio.playCount} | 
+                                创建时间: ${new Date(audio.createdAt).toLocaleString()}
+                                ${audio.cosAudioUrl ? ' | 云端存储' : ' | 本地存储'}
+                            </div>
+                        </div>
+                        <div class="audio-actions">
+                            <button class="btn btn-primary" onclick="window.open('${audio.playUrl}', '_blank')">
+                                🎧 播放
+                            </button>
+                            <button class="btn btn-secondary" onclick="viewQRCode('${audio.qrCodeUrl}', '${audio.originalName}', '${audio.playUrl}', '${audio.id}')">
+                                👁️ 查看二维码
+                            </button>
+                            <button class="btn btn-secondary" onclick="downloadQRCode('${audio.qrCodeUrl}', '${audio.id}')">
+                                💾 下载二维码
+                            </button>
+                            <button class="btn btn-secondary" onclick="deleteAudio('${audio.id}', '${audio.originalName}')">
+                                🗑️ 删除
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('加载音频列表失败:', error);
+                audioList.innerHTML = `
+                    <div style="text-align: center; color: #dc3545; padding: 40px;">
+                        加载失败，请刷新页面重试
+                    </div>
+                `;
+            }
+        }
+
+        function downloadQRCode(qrUrl, audioId) {
+            const link = document.createElement('a');
+            link.href = qrUrl;
+            link.download = `qr_${audioId}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function deleteAudio(audioId, audioName) {
+            if (!confirm(`确定要删除音频 "${audioName}" 吗？此操作不可恢复。`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/audio/${audioId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('删除成功', 'success');
+                    loadAudioList(); // 刷新列表
+                } else {
+                    showAlert(result.error || '删除失败', 'error');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                showAlert('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            // 移除现有的提示
+            const existingAlert = document.querySelector('.alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+
+            document.querySelector('.container').insertBefore(alert, document.querySelector('.upload-section'));
+
+            // 3秒后自动移除
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+
+        // 二维码查看弹窗相关功能
+        let currentQRData = null;
+
+        function viewQRCode(qrUrl, audioName, playUrl, audioId) {
+            currentQRData = {
+                qrUrl: qrUrl,
+                audioName: audioName,
+                playUrl: playUrl,
+                audioId: audioId
+            };
+
+            const modal = document.getElementById('qrModal');
+            const modalTitle = document.getElementById('qrModalTitle');
+            const modalImage = document.getElementById('qrModalImage');
+            const modalInfo = document.getElementById('qrModalInfo');
+
+            modalTitle.textContent = `🎵 ${audioName}`;
+            modalImage.src = qrUrl;
+            modalImage.alt = `${audioName} 的二维码`;
+
+            modalInfo.innerHTML = `
+                <h4>📱 使用说明</h4>
+                <p>• 使用手机扫描此二维码即可播放音频</p>
+                <p>• 二维码永久有效，可以分享给他人</p>
+                <p>• 支持微信、支付宝等扫码工具</p>
+                <br>
+                <h4>📋 音频信息</h4>
+                <p><strong>文件名:</strong> ${audioName}</p>
+                <p><strong>播放链接:</strong> <a href="${playUrl}" target="_blank" style="color: #667eea; text-decoration: none;">${playUrl}</a></p>
+            `;
+
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // 防止背景滚动
+        }
+
+        function closeQRModal() {
+            const modal = document.getElementById('qrModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto'; // 恢复滚动
+            currentQRData = null;
+        }
+
+        function testQRCode() {
+            if (currentQRData && currentQRData.playUrl) {
+                window.open(currentQRData.playUrl, '_blank');
+            }
+        }
+
+        function downloadCurrentQR() {
+            if (currentQRData) {
+                downloadQRCode(currentQRData.qrUrl, currentQRData.audioId);
+            }
+        }
+
+        function copyQRLink() {
+            if (currentQRData && currentQRData.playUrl) {
+                navigator.clipboard.writeText(currentQRData.playUrl).then(() => {
+                    showAlert('播放链接已复制到剪贴板', 'success');
+                }).catch(() => {
+                    // 备用复制方法
+                    const textArea = document.createElement('textarea');
+                    textArea.value = currentQRData.playUrl;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showAlert('播放链接已复制到剪贴板', 'success');
+                });
+            }
+        }
+
+        // 点击弹窗外部关闭弹窗
+        window.onclick = function(event) {
+            const modal = document.getElementById('qrModal');
+            if (event.target === modal) {
+                closeQRModal();
+            }
+        }
+
+        // ESC键关闭弹窗
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeQRModal();
+            }
+        });
+    </script>
+</body>
+</html> 
