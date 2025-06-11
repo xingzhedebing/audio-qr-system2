@@ -13,18 +13,30 @@ const REGION = process.env.COS_REGION;
 
 /**
  * 上传文件到腾讯云COS
- * @param {string} filePath - 本地文件路径
+ * @param {string|Buffer} filePathOrBuffer - 本地文件路径或Buffer
  * @param {string} key - COS中的文件键名
  * @returns {Promise<string>} - 返回文件的访问URL
  */
-async function uploadFile(filePath, key) {
+async function uploadFile(filePathOrBuffer, key) {
     return new Promise((resolve, reject) => {
+        let body, contentLength;
+        
+        if (Buffer.isBuffer(filePathOrBuffer)) {
+            // 处理Buffer
+            body = filePathOrBuffer;
+            contentLength = filePathOrBuffer.length;
+        } else {
+            // 处理文件路径
+            body = fs.createReadStream(filePathOrBuffer);
+            contentLength = fs.statSync(filePathOrBuffer).size;
+        }
+        
         cos.putObject({
             Bucket: BUCKET,
             Region: REGION,
             Key: key,
-            Body: fs.createReadStream(filePath),
-            ContentLength: fs.statSync(filePath).size,
+            Body: body,
+            ContentLength: contentLength,
         }, (err, data) => {
             if (err) {
                 console.error('COS上传错误:', err);

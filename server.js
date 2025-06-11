@@ -42,38 +42,18 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
 
-// 确保上传目录存在
-fs.ensureDirSync('uploads');
-fs.ensureDirSync('public');
-
-// 初始化数据库
-const adapter = new JSONFile('audio_qr.json');
-const db = new Low(adapter, { audios: [] });
-
-// 读取数据库
-async function initDB() {
-  await db.read();
-  if (!db.data) {
-    db.data = { audios: [] };
-    await db.write();
-  }
+// Vercel环境下不需要创建本地目录
+if (NODE_ENV !== 'production') {
+  fs.ensureDirSync('uploads');
+  fs.ensureDirSync('public');
 }
 
-initDB();
+// 初始化数据库 - Vercel环境使用内存存储
+let audioData = { audios: [] };
 
-// 配置文件上传
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueId = uuidv4();
-    const ext = path.extname(file.originalname);
-    cb(null, uniqueId + ext);
-  }
-});
+// 配置文件上传 - Vercel环境使用内存存储
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -114,19 +94,18 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: '请选择音频文件' });
     }
 
-    const audioId = path.parse(req.file.filename).name;
+    const audioId = uuidv4();
     const correctHost = getCorrectHost(req);
     const playUrl = `${req.protocol}://${correctHost}/play/${audioId}`;
     
     console.log(`生成播放链接: ${playUrl}`);
     
-    // 上传音频到腾讯云COS
-    const audioKey = `audio/${audioId}${path.extname(req.file.filename)}`;
-    const cosAudioUrl = await uploadFile(req.file.path, audioKey);
+    // 上传音频到腾讯云COS (使用buffer)
+    const audioKey = `audio/${audioId}${path.extname(req.file.originalname)}`;
+    const cosAudioUrl = await uploadFile(req.file.buffer, audioKey);
     
-    // 生成二维码
-    const qrCodePath = `public/qr_${audioId}.png`;
-    await QRCode.toFile(qrCodePath, playUrl, {
+    // 生成二维码 (生成buffer)
+    const qrCodeBuffer = await QRCode.toBuffer(playUrl, {
       width: 300,
       margin: 2,
       color: {
@@ -137,30 +116,20 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
 
     // 上传二维码到腾讯云COS
     const qrKey = `qrcode/qr_${audioId}.png`;
-    const cosQrUrl = await uploadFile(qrCodePath, qrKey);
+    const cosQrUrl = await uploadFile(qrCodeBuffer, qrKey);
 
     // 保存到数据库
     try {
-      await db.read();
-      const audioData = {
+      audioData.audios.push({
         id: audioId,
-        filename: req.file.filename,
+        filename: `${audioId}${path.extname(req.file.originalname)}`,
         original_name: fixChineseFilename(req.file.originalname),
-        file_path: req.file.path,
         cos_audio_url: cosAudioUrl,
         cos_qr_url: cosQrUrl,
-        qr_code_path: qrCodePath,
         created_at: new Date().toISOString(),
         play_count: 0
-      };
+      });
       
-      db.data.audios.push(audioData);
-      await db.write();
-
-      // 清理本地临时文件
-      fs.remove(req.file.path).catch(console.error);
-      fs.remove(qrCodePath).catch(console.error);
-
       res.json({
         success: true,
         audioId: audioId,
@@ -176,10 +145,6 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
 
   } catch (error) {
     console.error('上传错误:', error);
-    // 清理本地文件
-    if (req.file) {
-      fs.remove(req.file.path).catch(console.error);
-    }
     res.status(500).json({ error: '上传失败: ' + error.message });
   }
 });
@@ -189,8 +154,7 @@ app.get('/play/:id', async (req, res) => {
   const audioId = req.params.id;
   
   try {
-    await db.read();
-    const row = db.data.audios.find(audio => audio.id === audioId);
+    const row = audioData.audios.find(audio => audio.id === audioId);
     
     if (!row) {
       console.log(`音频不存在: ${audioId}`);
@@ -242,7 +206,6 @@ app.get('/play/:id', async (req, res) => {
 
     // 增加播放次数
     row.play_count = (row.play_count || 0) + 1;
-    await db.write();
     
     console.log(`播放音频: ${row.original_name}, 播放次数: ${row.play_count}`);
 
@@ -429,8 +392,7 @@ app.get('/play/:id', async (req, res) => {
 // 路由：获取音频列表
 app.get('/api/audios', async (req, res) => {
   try {
-    await db.read();
-    const rows = db.data.audios.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const rows = audioData.audios.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     
     const correctHost = getCorrectHost(req);
     const audios = rows.map(row => ({
@@ -455,14 +417,13 @@ app.delete('/api/audio/:id', async (req, res) => {
   const audioId = req.params.id;
   
   try {
-    await db.read();
-    const rowIndex = db.data.audios.findIndex(audio => audio.id === audioId);
+    const rowIndex = audioData.audios.findIndex(audio => audio.id === audioId);
     
     if (rowIndex === -1) {
       return res.status(404).json({ error: '音频不存在' });
     }
     
-    const row = db.data.audios[rowIndex];
+    const row = audioData.audios[rowIndex];
     
     // 删除COS中的文件
     const deletePromises = [];
@@ -487,8 +448,8 @@ app.delete('/api/audio/:id', async (req, res) => {
     }
     
     // 删除数据库记录
-    db.data.audios.splice(rowIndex, 1);
-    await db.write();
+    audioData.audios.splice(rowIndex, 1);
+    
     res.json({ success: true, message: '删除成功' });
   } catch (err) {
     console.error('数据库错误:', err);
